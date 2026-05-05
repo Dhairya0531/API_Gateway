@@ -1,0 +1,148 @@
+version: "3.9"
+
+# All services share this network — they can reach each other by service name
+# e.g. gateway reaches users-svc at http://users-svc:9001
+networks:
+  gateway-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+
+services:
+
+  # ── API Gateway ─────────────────────────────────────────────────────────────
+  gateway:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - CONFIG_PATH=/app/config/config.docker.yaml
+    volumes:
+      - ../config/config.docker.yaml:/app/config/config.docker.yaml:ro
+    depends_on:
+      - users-svc
+      - payments-svc
+      - transactions-svc
+      - redis
+    networks:
+      - gateway-net
+    restart: unless-stopped
+
+  # ── Mock Backend Services ────────────────────────────────────────────────────
+  users-svc:
+    image: golang:1.25-alpine
+    working_dir: /app
+    volumes:
+      - ..:/app
+    command: go run ./scripts/mock_server.go -port 9001 -service users
+    ports:
+      - "9001:9001"
+    networks:
+      - gateway-net
+    restart: unless-stopped
+
+  payments-svc:
+    image: golang:1.25-alpine
+    working_dir: /app
+    volumes:
+      - ..:/app
+    command: go run ./scripts/mock_server.go -port 9002 -service payments
+    ports:
+      - "9002:9002"
+    networks:
+      - gateway-net
+    restart: unless-stopped
+
+  transactions-svc:
+    image: golang:1.25-alpine
+    working_dir: /app
+    volumes:
+      - ..:/app
+    command: go run ./scripts/mock_server.go -port 9003 -service transactions
+    ports:
+      - "9003:9003"
+    networks:
+      - gateway-net
+    restart: unless-stopped
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  # Used for: rate limiting counters, idempotency key storage
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - gateway-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  # Used for: audit log of all requests (async writes, never on critical path)
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway
+      POSTGRES_DB: gateway_logs
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - gateway-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gateway -d gateway_logs"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Prometheus ───────────────────────────────────────────────────────────────
+  # Scrapes /metrics from the gateway every 15 seconds
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../scripts/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - gateway-net
+    restart: unless-stopped
+
+  # ── Grafana ──────────────────────────────────────────────────────────────────
+  # Visualizes Prometheus metrics — access at http://localhost:3000 (admin/admin)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    networks:
+      - gateway-net
+    restart: unless-stopped
+
+  # ── Jaeger Tracing ───────────────────────────────────────────────────────────
+  # Visualizes distributed traces — access at http://localhost:16686
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686" # Web UI
+      - "14268:14268" # HTTP trace receiver
+    networks:
+      - gateway-net
+    restart: unless-stopped
