@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-gateway-config
+  labels:
+    app: {{ .Release.Name }}-gateway
+data:
+  config.yaml: |
+    server:
+      port: 8080
+      read_timeout: 30s
+      write_timeout: 30s
+      idle_timeout: 120s
+
+    auth:
+      enabled: true
+      valid_tokens:
+        - "secret123"
+
+    routes:
+      - path: /users
+        service: users
+        timeout: 10s
+        rate_limit:
+          requests_per_minute: 100
+
+      - path: /payments
+        service: payments
+        timeout: 15s
+        rate_limit:
+          requests_per_minute: 10
+
+      - path: /transactions
+        service: transactions
+        timeout: 10s
+        rate_limit:
+          requests_per_minute: 50
+
+    services:
+      users:
+        upstreams:
+          - http://users-svc:9001
+        health_check:
+          path: /health
+          interval: 10s
+          timeout: 2s
+        balance_strategy: least-connections
+
+      payments:
+        upstreams:
+          - http://payments-svc:9002
+        health_check:
+          path: /health
+          interval: 10s
+          timeout: 2s
+        balance_strategy: weighted-latency
+
+      transactions:
+        upstreams:
+          - http://transactions-svc:9003
+        health_check:
+          path: /health
+          interval: 10s
+          timeout: 2s
+        balance_strategy: round-robin
+
+    redis:
+      addr: {{ .Values.redis.host }}:6379
+      password: ""
+      db: 0
+
+    postgres:
+      host: {{ .Values.postgres.host }}
+      port: 5432
+      user: gateway
+      password: gateway
+      dbname: gateway_logs
+      sslmode: disable

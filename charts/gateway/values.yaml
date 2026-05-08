@@ -1,0 +1,39 @@
+replicaCount: 2
+
+image:
+  repository: api-gateway
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  adminPort: 9090
+
+# Optional Redis dependency if not using an external cluster
+redis:
+  enabled: false
+  host: "redis-master.default.svc.cluster.local"
+
+# Optional Postgres dependency if not using an external DB
+postgres:
+  enabled: false
+  host: "postgres.default.svc.cluster.local"
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
