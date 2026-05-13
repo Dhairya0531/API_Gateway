@@ -1,0 +1,67 @@
+openapi: 3.0.0
+info:
+  title: API Gateway Management & Health API
+  description: Internal endpoints for monitoring the health and statistics of the API Gateway.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Gateway Public Port (Health endpoint)
+  - url: http://localhost:9090
+    description: Gateway Admin Port (Management API)
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Returns the health status of the gateway and its upstream pools. Bypasses the router and middleware chain.
+      servers:
+        - url: http://localhost:8080
+      responses:
+        '200':
+          description: Gateway is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  time:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                    example: v1.0.0
+                  pools:
+                    type: object
+                    description: Map of service names to health statistics
+                    additionalProperties:
+                      type: object
+                      properties:
+                        healthy:
+                          type: integer
+                          description: Number of currently healthy upstream instances
+                        total:
+                          type: integer
+                          description: Total number of configured upstream instances
+
+  /pools:
+    get:
+      summary: Get Upstream Pool Statistics
+      description: Returns real-time health and statistics for all registered upstream pools. Only available on the internal Admin port (9090).
+      servers:
+        - url: http://localhost:9090
+      responses:
+        '200':
+          description: Pool statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    healthy:
+                      type: integer
+                    total:
+                      type: integer
