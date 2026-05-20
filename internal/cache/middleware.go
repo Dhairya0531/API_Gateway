@@ -46,7 +46,9 @@ func Middleware(redisClient *store.RedisClient, ttl time.Duration, log *slog.Log
 				log.Warn("cache get failed", slog.String("error", err.Error()))
 			} else if found {
 				var cached CachedResponse
-				if err := json.Unmarshal([]byte(val), &cached); err == nil {
+				if err := json.Unmarshal([]byte(val), &cached); err != nil {
+					log.Warn("failed to unmarshal cached response", slog.String("error", err.Error()))
+				} else {
 					// Cache hit!
 					for k, vals := range cached.Headers {
 						for _, v := range vals {
@@ -65,7 +67,6 @@ func Middleware(redisClient *store.RedisClient, ttl time.Duration, log *slog.Log
 					)
 					return
 				}
-				log.Warn("failed to unmarshal cached response", slog.String("error", err.Error()))
 			}
 
 			// 2. Cache miss — fetch from upstream and capture response
