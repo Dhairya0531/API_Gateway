@@ -23,10 +23,14 @@ jobs:
     - name: Install dependencies
       run: go mod download
 
-    - name: Run golangci-lint (docker)
+    - name: Install golangci-lint (build with runner Go)
       run: |
-        docker run --rm -v "$PWD":/app -w /app golangci/golangci-lint:v1.64.8 \
-          golangci-lint run --out-format=github-actions
+        export PATH="$PATH:$(go env GOPATH 2>/dev/null)/bin:$HOME/go/bin"
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+        golangci-lint --version
+
+    - name: Run golangci-lint
+      run: golangci-lint run --out-format=github-actions
         
     - name: Run Tests
       run: go test -v -race ./...
