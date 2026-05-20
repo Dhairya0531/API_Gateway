@@ -134,13 +134,13 @@ func Middleware(redisClient *store.RedisClient, log *slog.Logger) func(http.Hand
 				}
 
 				cachedJSON, _ := json.Marshal(cached)
-				
+
 				// Run in background to not block the client response
 				go func(ctx context.Context, key string, data []byte) {
 					// Need a new context since the request context is cancelled when handler returns
 					cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 					defer cancel()
-					
+
 					if err := redisClient.Set(cacheCtx, key, string(data), 24*time.Hour); err != nil {
 						log.Error("failed to cache idempotent response", slog.String("error", err.Error()))
 					}

@@ -230,7 +230,7 @@ func main() {
 	var handler http.Handler = r
 
 	handler = ratelimit.Middleware(slidingWindow, buildRateLimitMap(config.Routes), log)(handler)
-	
+
 	// Idempotency — prevents duplicate POST/PUT requests
 	handler = idempotency.Middleware(redisClient, log)(handler)
 
@@ -293,7 +293,7 @@ func main() {
 		Addr:    ":9090",
 		Handler: adminAPI.Handler(),
 	}
-	
+
 	go func() {
 		log.Info("admin api listening", slog.Int("port", 9090))
 		if err := adminServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {

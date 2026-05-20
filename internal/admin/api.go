@@ -23,7 +23,7 @@ func (a *API) Handler() *http.ServeMux {
 
 	// GET /admin/pools — Returns the status of all upstreams
 	mux.HandleFunc("/admin/pools", a.handleGetPools)
-	
+
 	// POST /admin/pools/{service}/upstreams/{url}/status — Manually mark upstream up/down
 	// For simplicity in standard library (Go < 1.22), we use a generic path and parse manually
 	mux.HandleFunc("/admin/upstream/status", a.handleSetUpstreamStatus)

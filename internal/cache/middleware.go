@@ -58,7 +58,7 @@ func Middleware(redisClient *store.RedisClient, ttl time.Duration, log *slog.Log
 					if _, err := w.Write([]byte(cached.Body)); err != nil {
 						log.Warn("failed to write cached response", slog.String("error", err.Error()))
 					}
-					
+
 					log.Debug("served from cache",
 						slog.String("request_id", middleware.GetRequestID(r.Context())),
 						slog.String("path", r.URL.Path),
@@ -84,24 +84,24 @@ func Middleware(redisClient *store.RedisClient, ttl time.Duration, log *slog.Log
 					Headers: rec.Header(),
 					Body:    rec.body.String(),
 				}
-				
+
 				// Exclude gateway-specific headers from cache
 				delete(cached.Headers, "X-Request-Id")
 				delete(cached.Headers, "X-Cache")
 
 				cachedJSON, _ := json.Marshal(cached)
-				
+
 				// Write to cache asynchronously
 				go func(ctx context.Context, key string, data string) {
 					cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 					defer cancel()
-					
+
 					if err := redisClient.Set(cacheCtx, key, data, ttl); err != nil {
 						log.Error("failed to write to cache", slog.String("error", err.Error()))
 					}
 				}(r.Context(), cacheKey, string(cachedJSON))
 			}
-			
+
 			// If not a hit, mark as miss
 			if w.Header().Get("X-Cache") == "" {
 				w.Header().Set("X-Cache", "MISS")

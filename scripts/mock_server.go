@@ -64,14 +64,14 @@ func main() {
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(map[string]any{
-			"service":        *service,
-			"host":           hostname,
-			"port":           *port,
-			"path":           r.URL.Path,
-			"method":         r.Method,
-			"request_id":     requestID,     // echoed back for tracing verification
-			"forwarded_for":  forwardedFor,  // shows gateway forwarded this correctly
-			"timestamp":      time.Now().UTC().Format(time.RFC3339),
+			"service":       *service,
+			"host":          hostname,
+			"port":          *port,
+			"path":          r.URL.Path,
+			"method":        r.Method,
+			"request_id":    requestID,    // echoed back for tracing verification
+			"forwarded_for": forwardedFor, // shows gateway forwarded this correctly
+			"timestamp":     time.Now().UTC().Format(time.RFC3339),
 		}); err != nil {
 			log.Printf("failed to encode response: %v", err)
 		}

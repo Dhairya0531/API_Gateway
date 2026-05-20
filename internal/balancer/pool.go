@@ -17,8 +17,8 @@ import (
 type Upstream struct {
 	URL         string
 	Healthy     bool
-	ActiveConns atomic.Int64   // current in-flight requests to this upstream
-	latencyEWMA atomic.Uint64  // EWMA of response latency in milliseconds (stored as float64 bits)
+	ActiveConns atomic.Int64  // current in-flight requests to this upstream
+	latencyEWMA atomic.Uint64 // EWMA of response latency in milliseconds (stored as float64 bits)
 }
 
 // ewmaAlpha controls how much weight recent latency samples get.
