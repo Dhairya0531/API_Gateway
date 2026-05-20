@@ -124,8 +124,4 @@ Contributions welcome — please open a PR. Simple guidelines:
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for details.
-
----
-
-If you want, I can also add a `CONTRIBUTING.md`, `.env.example`, or update `go.mod`/`go.sum` documentation.
+This project is licensed; see the `LICENSE` file for details.
