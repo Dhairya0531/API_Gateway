@@ -1,81 +1,67 @@
 # Distributed API Gateway
 
-A production-ready, high-performance distributed API Gateway written in Go. Designed to safely route microservice traffic with robust failure management, observability, and concurrency protection.
+A production-ready, high-performance API Gateway written in Go. It routes microservice traffic with resilience, observability, and concurrency protection.
 
-## Architecture
+![CI](https://github.com/Dhairya0531/API_Gateway/actions/workflows/ci.yml/badge.svg)
 
-```mermaid
-graph TD
-    Client((Client)) --> |HTTP Request| M_Recovery[Recovery Middleware]
-    
-    subgraph Middleware Chain
-        M_Recovery --> M_RequestID[Request ID]
-        M_RequestID --> M_Metrics[Prometheus Metrics]
-        M_Metrics --> M_Logger[Structured Logging]
-        M_Logger --> M_Auth[Auth Validation]
-        M_Auth --> M_RateLimit[Redis Rate Limiter]
-        M_RateLimit --> M_Idempotency[Redis Idempotency]
-        M_Idempotency --> Router[Router]
-    end
+## Overview
 
-    Router --> |Match Path| CB{Circuit Breaker}
-    CB -- OPEN --> FastFail[503 Service Unavailable]
-    CB -- CLOSED --> Balancer[Load Balancer]
-    
-    subgraph Upstream Services
-        Balancer --> Svc1[Service Instance 1]
-        Balancer --> Svc2[Service Instance 2]
-    end
-    
-    subgraph Async Subsystems
-        Svc1 -.-> |Response| M_Audit[(PostgreSQL Audit Log)]
-        HealthChecker[Health Checker Goroutine] -.-> |Probe /health| Svc1
-    end
-```
+Features:
+- Pluggable load balancing (`round-robin`, `least-connections`, `weighted-latency` / EWMA)
+- Circuit breaker (closed → open → half-open)
+- Redis-backed sliding-window rate limiting
+- Idempotency support (cache downstream responses by Idempotency-Key)
+- Async batched audit logging to PostgreSQL
+- Prometheus metrics at `/metrics` and structured logging via `slog`
+- Background health checking
 
-## Core Features
+## Prerequisites
 
-- **Intelligent Load Balancing**: Supports Pluggable Strategies:
-  - `least-connections`: Adapts to heterogeneous backends by routing to the instance with the fewest in-flight requests.
-  - `weighted-latency` (EWMA): Exponentially Weighted Moving Average to automatically route traffic to the fastest servers.
-  - `round-robin`: Simple, fair distribution.
-- **Resilience**: 
-  - Finite State Machine **Circuit Breaker** (Closed -> Open -> Half-Open) to prevent cascading failures.
-  - Background asynchronous Health Checks.
-- **Traffic Control**:
-  - Redis-backed Sliding Window **Rate Limiting** (preventing boundary burst issues seen in fixed-window).
-  - **Idempotency**: Safely handles duplicate POST/PUT requests by caching downstream responses in Redis.
-- **Observability**:
-  - Async **Audit Logging**: Batched, non-blocking inserts to PostgreSQL.
-  - Prometheus metrics exported at `/metrics`.
-  - Structured JSON logging (`log/slog`).
+- Go 1.25.6 (for local builds and tooling)
+- Docker & Docker Compose (for local multi-service stack)
 
-## Getting Started
+## Quick Start (Docker Compose)
 
-### 1-Click Local Deployment
-
-The easiest way to run the API Gateway along with its dependencies (Redis, Postgres, Prometheus, Grafana, and Mock Upstreams) is via Docker Compose:
+Bring up the gateway and dependencies (Redis, Postgres, Prometheus, Grafana, mock upstreams):
 
 ```bash
-docker-compose -f docker/docker-compose.yml up --build -d
+docker compose -f docker/docker-compose.yml up --build -d
 ```
 
-- **Gateway**: `http://localhost:8080`
-- **Grafana Dashboard**: `http://localhost:3000` (admin/admin)
-- **Admin API**: `http://localhost:9090` (Internal Pool Stats)
+Service endpoints:
+- Gateway: `http://localhost:8080`
+- Admin API: `http://localhost:9090`
+- Grafana: `http://localhost:3000` (default `admin`/`admin`)
 
-### Configuration Schema (`config/config.yaml`)
+Shut down:
+
+```bash
+docker compose -f docker/docker-compose.yml down
+```
+
+## Run Locally (without Docker)
+
+1. Install Go 1.25.6.
+2. Download dependencies:
+
+```bash
+go mod download
+```
+
+3. Build and run:
+
+```bash
+CGO_ENABLED=0 go build -o gateway ./cmd/gateway
+./gateway
+```
+
+## Configuration
+
+Primary config file: `config/config.yaml`. Example:
 
 ```yaml
 server:
   port: 8080
-
-routes:
-  - path: /payments
-    service: payments
-    timeout: 15s
-    rate_limit:
-      requests_per_minute: 10 # Redis-backed Sliding Window
 
 services:
   payments:
@@ -84,14 +70,62 @@ services:
     health_check:
       path: /health
       interval: 10s
-    balance_strategy: weighted-latency # ewma, least-connections, round-robin
+    balance_strategy: weighted-latency
+
+routes:
+  - path: /payments
+    service: payments
+    timeout: 15s
+    rate_limit:
+      requests_per_minute: 10
 ```
 
-## Running Tests
+Notes:
+- `balance_strategy` accepts `round-robin`, `least-connections`, or `weighted-latency`.
+- Health check path defaults to `/health` if omitted.
 
-Unit and integration tests run entirely in Docker (or Podman).
+## Observability & Tracing
+
+- Metrics: `GET /metrics` (Prometheus)
+- Tracing: OTLP HTTP exporter is used by default; configure collector endpoint via environment or code.
+
+## Testing
+
+Run tests locally:
 
 ```bash
-go test -v -race ./...
+go test ./... -v
 ```
-*(Tests use `miniredis` to mock Redis Lua scripts locally without requiring an external container).*
+
+Unit tests use `miniredis` to mock Redis — no external Redis required for unit tests.
+
+## Linting
+
+Locally run the linter:
+
+```bash
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+golangci-lint run ./...
+```
+
+CI runs `golangci-lint` and `go test` as part of the workflow at `.github/workflows/ci.yml`.
+
+## Troubleshooting
+
+- If the linter fails about Go version mismatch, ensure the runner's Go version matches the `go` directive in `go.mod` (1.25.6).
+- CI cache errors usually resolve on re-run (GitHub cache service intermittent failures).
+
+## Contributing
+
+Contributions welcome — please open a PR. Simple guidelines:
+1. Fork and create a branch
+2. Run `golangci-lint` and tests locally
+3. Add unit tests for bug fixes or new features
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for details.
+
+---
+
+If you want, I can also add a `CONTRIBUTING.md`, `.env.example`, or update `go.mod`/`go.sum` documentation.
