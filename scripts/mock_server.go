@@ -33,20 +33,24 @@ func main() {
 	// /health — used by the gateway's health checker
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
+		if err := json.NewEncoder(w).Encode(map[string]string{
 			"status":  "ok",
 			"service": *service,
 			"host":    hostname,
-		})
+		}); err != nil {
+			log.Printf("failed to encode health response: %v", err)
+		}
 	})
 
 	// /slow — simulates a slow upstream (for testing timeout middleware)
 	mux.HandleFunc("/slow", func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(10 * time.Second)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
+		if err := json.NewEncoder(w).Encode(map[string]string{
 			"message": "finally responded",
-		})
+		}); err != nil {
+			log.Printf("failed to encode slow response: %v", err)
+		}
 	})
 
 	// Catch-all handler for all other paths
@@ -59,7 +63,7 @@ func main() {
 		forwardedFor := r.Header.Get("X-Forwarded-For")
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
+		if err := json.NewEncoder(w).Encode(map[string]any{
 			"service":        *service,
 			"host":           hostname,
 			"port":           *port,
@@ -68,7 +72,9 @@ func main() {
 			"request_id":     requestID,     // echoed back for tracing verification
 			"forwarded_for":  forwardedFor,  // shows gateway forwarded this correctly
 			"timestamp":      time.Now().UTC().Format(time.RFC3339),
-		})
+		}); err != nil {
+			log.Printf("failed to encode response: %v", err)
+		}
 	})
 
 	log.Printf("[%s] Mock server listening on %s", *service, addr)

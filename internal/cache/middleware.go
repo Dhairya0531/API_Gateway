@@ -55,7 +55,9 @@ func Middleware(redisClient *store.RedisClient, ttl time.Duration, log *slog.Log
 					}
 					w.Header().Set("X-Cache", "HIT")
 					w.WriteHeader(cached.Status)
-					w.Write([]byte(cached.Body))
+					if _, err := w.Write([]byte(cached.Body)); err != nil {
+						log.Warn("failed to write cached response", slog.String("error", err.Error()))
+					}
 					
 					log.Debug("served from cache",
 						slog.String("request_id", middleware.GetRequestID(r.Context())),

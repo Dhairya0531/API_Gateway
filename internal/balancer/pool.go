@@ -129,18 +129,15 @@ func (p *Pool) SetHealthy(url string, healthy bool) {
 	}
 }
 
-// All returns a copy of all upstreams (healthy and unhealthy).
-// Used by the health checker to know what to probe.
-func (p *Pool) All() []Upstream {
+// All returns the list of upstream pointers (healthy and unhealthy).
+// We return a shallow copy of the slice to avoid exposing internal
+// slice mutations while still avoiding copying the Upstream struct
+// (which embeds atomic fields and must not be copied).
+func (p *Pool) All() []*Upstream {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	result := make([]Upstream, len(p.upstreams))
-	for i, u := range p.upstreams {
-		result[i] = Upstream{
-			URL:     u.URL,
-			Healthy: u.Healthy,
-		}
-	}
+	result := make([]*Upstream, len(p.upstreams))
+	copy(result, p.upstreams)
 	return result
 }
 

@@ -123,7 +123,9 @@ func (p *PgClient) InsertLogBatch(ctx context.Context, entries []LogEntry) error
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	for _, entry := range entries {
 		_, err := tx.Exec(ctx,

@@ -36,7 +36,7 @@ func TestIdempotencyMiddleware(t *testing.T) {
 		callCount++
 		w.Header().Set("X-Custom", "test")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"success":true}`))
+		_, _ = w.Write([]byte(`{"success":true}`))
 	})
 
 	handler := middleware(nextHandler)

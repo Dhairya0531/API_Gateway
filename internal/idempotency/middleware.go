@@ -89,7 +89,9 @@ func Middleware(redisClient *store.RedisClient, log *slog.Logger) func(http.Hand
 					)
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusUnprocessableEntity)
-					fmt.Fprintf(w, `{"error":"idempotency key reused with different payload"}`)
+					if _, err := fmt.Fprintf(w, `{"error":"idempotency key reused with different payload"}`); err != nil {
+						log.Warn("failed to write idempotency error response", slog.String("error", err.Error()))
+					}
 					return
 				}
 
@@ -101,7 +103,9 @@ func Middleware(redisClient *store.RedisClient, log *slog.Logger) func(http.Hand
 				}
 				w.Header().Set("X-Idempotency-Cached", "true")
 				w.WriteHeader(cached.Status)
-				w.Write([]byte(cached.Body))
+				if _, err := w.Write([]byte(cached.Body)); err != nil {
+					log.Warn("failed to write cached idempotent response", slog.String("error", err.Error()))
+				}
 
 				log.Info("served idempotent request from cache",
 					slog.String("request_id", middleware.GetRequestID(r.Context())),

@@ -27,7 +27,7 @@ import (
 	"github.com/Dhairya0531/API_Gateway/internal/store"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -36,7 +36,14 @@ import (
 
 // initTracer creates a new trace provider instance and registers it as global trace provider.
 func initTracer(url string) (*sdktrace.TracerProvider, error) {
-	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(url)))
+	// Use OTLP HTTP exporter. Prefer OTLP over the deprecated Jaeger exporter.
+	ctx := context.Background()
+	// Default to localhost:4318 (common OTLP HTTP endpoint). If your collector
+	// uses a different endpoint, set the `url` accordingly in the caller.
+	exp, err := otlptracehttp.New(ctx,
+		otlptracehttp.WithEndpoint("localhost:4318"),
+		otlptracehttp.WithInsecure(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +83,9 @@ func main() {
 		defer func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			tp.Shutdown(ctx)
+			if err := tp.Shutdown(ctx); err != nil {
+				log.Warn("tracer shutdown error", slog.String("error", err.Error()))
+			}
 		}()
 		log.Info("opentelemetry tracing initialized")
 	} else {
@@ -248,12 +257,15 @@ func main() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
+		if err := json.NewEncoder(w).Encode(map[string]any{
 			"status":  "ok",
 			"time":    time.Now().UTC().Format(time.RFC3339),
 			"version": "v1.0.0",
 			"pools":   poolStats(pools),
-		})
+		}); err != nil {
+			// Best-effort — health endpoint
+			return
+		}
 	})
 
 	// Serve OpenAPI / Swagger specs

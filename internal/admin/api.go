@@ -70,7 +70,10 @@ func (a *API) handleGetPools(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (a *API) handleSetUpstreamStatus(w http.ResponseWriter, r *http.Request) {
@@ -99,5 +102,8 @@ func (a *API) handleSetUpstreamStatus(w http.ResponseWriter, r *http.Request) {
 	pool.SetHealthy(req.URL, req.Healthy)
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"success"}`))
+	if _, err := w.Write([]byte(`{"status":"success"}`)); err != nil {
+		// Best-effort logging — response already started
+		return
+	}
 }

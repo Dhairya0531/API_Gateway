@@ -28,5 +28,7 @@ func writeDegradedResponse(w http.ResponseWriter, req *http.Request) {
 		RetryAfter: 30,
 	}
 	
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		return
+	}
 }
