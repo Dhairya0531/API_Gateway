@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Dhairya0531/API_Gateway/internal/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -38,6 +39,25 @@ var (
 		},
 		[]string{"service", "upstream_url"},
 	)
+
+	// UpstreamHealth indicates whether an upstream is healthy (1) or unhealthy (0).
+	// Documented in `internal/metrics/prometheus.go` but implemented here.
+	UpstreamHealth = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "gateway_upstream_health",
+			Help: "Health status of upstream services (1=healthy, 0=unhealthy).",
+		},
+		[]string{"service", "host"},
+	)
+
+	// RateLimitHits counts rate limit events per user and route.
+	RateLimitHits = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "gateway_rate_limit_hits_total",
+			Help: "Total number of rate limit events by user and route.",
+		},
+		[]string{"user", "route"},
+	)
 )
 
 // Middleware creates an HTTP middleware that records Prometheus metrics.
@@ -52,10 +72,12 @@ func Middleware() func(http.Handler) http.Handler {
 			duration := time.Since(start).Seconds()
 			statusStr := strconv.Itoa(wrapped.status())
 
-			// We group paths to avoid cardinality explosion (e.g., /users/123 -> /users)
-			// In a real app, you'd use the matched route pattern. Here we just use the raw path.
-			// It's acceptable for this sprint.
-			path := r.URL.Path
+			// Use matched route pattern when available to avoid label cardinality explosion
+			// (e.g., /users/123 -> /users). Router sets the pattern in context.
+			path := middleware.GetRoutePattern(r.Context())
+			if path == "" {
+				path = r.URL.Path
+			}
 
 			RequestCount.WithLabelValues(r.Method, path, statusStr).Inc()
 			RequestDuration.WithLabelValues(r.Method, path).Observe(duration)

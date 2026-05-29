@@ -20,6 +20,14 @@ postgres:
   enabled: false
   host: "postgres.default.svc.cluster.local"
 
+# Prometheus / ServiceMonitor settings
+prometheus:
+  enabled: false
+
+# Grafana dashboard provisioning
+grafana:
+  enabled: false
+
 resources:
   limits:
     cpu: 500m

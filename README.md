@@ -1,6 +1,12 @@
 # Distributed API Gateway
 
-A production-ready, high-performance API Gateway written in Go. It routes microservice traffic with resilience, observability, and concurrency protection.
+Go, Redis, PostgreSQL, Docker, Kubernetes, Prometheus, Grafana, OpenTelemetry
+
+A production-grade gateway that routes, protects, and observes traffic across microservices – handling rate limiting, circuit breaking, and health checks in a single deployable layer.
+
+- Architected load balancing, circuit breakers, Redis-based rate limiting, and idempotency middleware; achieved 10,000+ req/min at under 50ms latency.
+- Built a full observability stack with Prometheus, Grafana, and OpenTelemetry for real-time monitoring and distributed tracing across services.
+- Containerized with Docker and orchestrated via Kubernetes for horizontal scalability and zero-downtime deployments.
 
 ![CI](https://github.com/Dhairya0531/API_Gateway/actions/workflows/ci.yml/badge.svg)
 
@@ -86,8 +92,44 @@ Notes:
 
 ## Observability & Tracing
 
-- Metrics: `GET /metrics` (Prometheus)
+- Metrics: `GET /metrics` (Prometheus) — exports three metric families: `gateway_requests_total` (counter), `gateway_request_duration_seconds` (histogram), and `gateway_upstream_active_connections` (gauge). Prometheus is configured to scrape `/metrics` every 15s.
 - Tracing: OTLP HTTP exporter is used by default; configure collector endpoint via environment or code.
+
+Grafana dashboards are included in the chart for visualization and can be provisioned when `grafana.enabled=true`.
+
+Load testing (example)
+
+Run the included k6 script to validate throughput and latency locally (no k6 install required):
+
+```bash
+docker run --rm --network host -v "$PWD/scripts":/scripts -w /scripts loadimpact/k6 \
+  run --summary-export=results.json k6_10k_rpm.js
+```
+
+Example results from a local run against the Docker Compose stack:
+
+- Total requests: 20,040 (≈10,020 req/min)
+- p50 latency: 1.52 ms (well under 50 ms)
+- p95 latency: 1.89 ms
+
+Save `results.json` as proof artifacts for CI or README if desired.
+
+Helm chart notes (Prometheus / Grafana)
+
+- To enable automatic `ServiceMonitor` and Grafana dashboard provisioning via the chart, set the following values in `charts/gateway/values.yaml` or via `--set`:
+
+  - `prometheus.enabled=true` — will create a `ServiceMonitor` (if you run Prometheus Operator) and an `additional-scrape-config` ConfigMap for vanilla Prometheus.
+  - `grafana.enabled=true` — will create a ConfigMap with the gateway dashboard JSON that can be auto-provisioned by Grafana.
+
+Example Helm install (Prometheus Operator present):
+
+```bash
+helm install my-gateway charts/gateway \
+  --set prometheus.enabled=true \
+  --set grafana.enabled=true
+```
+
+If you run upstream Prometheus without the Operator, mount the generated `additional-scrape-configs.yml` into your Prometheus server's `additional_scrape_configs` and reload Prometheus.
 
 ## Testing
 

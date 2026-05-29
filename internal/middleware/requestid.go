@@ -12,6 +12,10 @@ type contextKey string
 
 const RequestIDKey contextKey = "request_id"
 
+// RoutePatternKey stores the matched route pattern (prefix) in the request context.
+// Example: "/users" or "/payments"
+const RoutePatternKey contextKey = "route_pattern"
+
 // RequestID generates a UUID for every incoming request and:
 //   - Stores it in the request context (for downstream access)
 //   - Writes it to the response header (X-Request-ID)
@@ -43,4 +47,11 @@ func RequestID(next http.Handler) http.Handler {
 func GetRequestID(ctx context.Context) string {
 	id, _ := ctx.Value(RequestIDKey).(string)
 	return id
+}
+
+// GetRoutePattern retrieves the matched route pattern from the context.
+// Returns empty string if not set.
+func GetRoutePattern(ctx context.Context) string {
+	p, _ := ctx.Value(RoutePatternKey).(string)
+	return p
 }

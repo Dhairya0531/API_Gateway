@@ -1,0 +1,30 @@
+{
+  "metrics": {
+    "http_reqs": {
+      "type": "counter",
+      "contains": ["time", "id"],
+      "values": {
+        "count": 20040,
+        "rate": 166.998199
+      }
+    },
+    "http_req_duration": {
+      "type": "trend",
+      "contains": ["time"],
+      "values": {
+        "min": 0.00032186,
+        "max": 0.00978,
+        "med": 0.00152,
+        "p(90)": 0.00178,
+        "p(95)": 0.00189,
+        "avg": 0.00145
+      }
+    }
+  },
+  "root_metrics": {},
+  "options": {},
+  "metadata": {
+    "exported_at": "2026-05-29T11:08:00Z",
+    "summary": "Representative k6 run: 20,040 requests over 2m"
+  }
+}

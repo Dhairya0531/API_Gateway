@@ -104,6 +104,11 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx, cancel := context.WithTimeout(req.Context(), route.timeout)
 	defer cancel()
 
+	// Store matched route pattern in context so upstream middleware (metrics)
+	// can use the normalized route label instead of raw paths to avoid
+	// high metric cardinality.
+	ctx = context.WithValue(ctx, middleware.RoutePatternKey, route.prefix)
+
 	route.proxy.ServeHTTP(w, req.WithContext(ctx))
 }
 
